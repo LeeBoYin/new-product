@@ -5,7 +5,7 @@
 		<div class="row">
 			<div v-if="specs.date" class="col-md-6">
 				<Calendar
-					v-model="selected.combo.date"
+					v-model="selected.date"
 					@input="onDateChange"
 					:start-week-day="1"
 					:is-multiple-date="false"
@@ -17,34 +17,30 @@
 			<div class="col-md-6">
 				<div v-for="(values, name) in specs" v-if="name !== 'date'" :key="'spec-row-' + name" class="spec-row">
 					<div class="spec-name">{{ name }}</div>
-					<!--<template v-if="name !== multiSpec">-->
+					<template v-if="!isMultiSku || name !== multiSpec">
 						<div
 							v-for="value in values"
 							:key="'spec-name-' + value"
-							:class="{ selected: selected.combo[name] === value, disabled: !skuStatus[name][value].selectable }"
+							:class="{ selected: selected[name] === value, disabled: !skuStatus[name][value].selectable }"
 							class="spec-value" @click="onClickSpec(name, value)">
 							<div>{{ value }}</div>
-							<div v-if="['date'].indexOf(name) !== -1" class="lowest-price">
-								<template v-if="skuStatus[name][value].lowestPrice === null">-</template>
-								<template v-else>from ${{ skuStatus[name][value].lowestPrice * selected.amount }}</template>
-							</div>
 						</div>
-					<!--</template>-->
-					<!--<template v-else>-->
-						<!--<div-->
-							<!--v-for="value in values"-->
-							<!--:key="'spec-name-' + value">-->
-							<!--<label>-->
-								<!--{{ value }}-->
-								<!--<input class="amount-input" type="number" min="0" :max="skuStatus[name][value].maxAmount" />-->
-							<!--</label>-->
-						<!--</div>-->
-					<!--</template>-->
+					</template>
+					<template v-else>
+						<div
+							v-for="value in values"
+							:key="'spec-name-' + value">
+							<label>
+								{{ value }}
+								<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="skuStatus[name][value].maxAmount" />
+							</label>
+						</div>
+					</template>
 				</div>
-				<div class="spec-row">
+				<div v-if="!isMultiSku" class="spec-row">
 					<div class="spec-name">Amount</div>
 					<div>
-						<input class="amount-input" type="number" v-model="selected.amount" min="1" :max="statistics.maxAmount" />
+						<input class="amount-input" type="number" v-model="amount" min="1" :max="statistics.maxAmount" />
 					</div>
 				</div>
 			</div>
@@ -86,7 +82,7 @@ const skus = getSkus(specs, {
 	},
 });
 
-const skuCalculator = new SkuCalculator(specs, skus);
+const skuCalculator = new SkuCalculator(specs, skus, ['age']);
 window.ss = skuCalculator;
 
 export default {
@@ -101,26 +97,46 @@ export default {
 			skuStatus: skuCalculator.skuStatus,
 			statistics: skuCalculator.statistics,
 			multiSpec: 'age',
+			amount: null,
 		};
 	},
-	watch: {
-		selected: {
-			deep: true,
-			handler() {
-				skuCalculator.setSelected(this.selected);
-				this.skuStatus = _.cloneDeep(skuCalculator.skuStatus);
-				this.statistics = _.cloneDeep(skuCalculator.statistics);
+	computed: {
+		isMultiSku() {
+			return _.includes(_.keys(this.specs), this.multiSpec);
+		},
+		selectedArray() {
+			const selectedArray = [];
+			if(this.isMultiSku) {
+				_.forEach(this.specs[this.multiSpec], (specValue) => {
+					const combo = _.clone(this.selected);
+					const amount = +_.get(this.amount, specValue, 0);
+					if(amount > 0) {
+						combo[this.multiSpec] = specValue;
+					}
+					selectedArray.push({
+						combo,
+						amount,
+					});
+				});
+			} else {
+				selectedArray.push({
+					combo: _.clone(this.selected),
+					amount: +this.amount,
+				});
 			}
+console.log(selectedArray);
+			return selectedArray;
+		},
+	},
+	watch: {
+		selectedArray() {
+			skuCalculator.setSelectedArray(this.selectedArray);
+			this.skuStatus = _.cloneDeep(skuCalculator.skuStatus);
+			this.statistics = _.cloneDeep(skuCalculator.statistics);
 		},
 	},
 	created() {
-		this.selected = {
-			combo: {},
-			amount: 1,
-		};
-		_.forEach(this.specs, (values, name) => {
-			Vue.set(this.selected.combo, name, null);
-		});
+		this.resetAll();
 	},
 	methods: {
 		onClickSpec(name, value) {
@@ -128,19 +144,35 @@ export default {
 				return;
 			}
 
-			if (this.selected.combo[name] === value) {
-				this.selected.combo[name] = null;
+			if (this.selected[name] === value) {
+				this.selected[name] = null;
 			} else {
-				this.selected.combo[name] = value;
+				this.selected[name] = value;
 			}
 		},
 		onDateChange(date) {
-			this.selected.combo['date'] = date;
+			this.selected['date'] = date;
 		},
 		resetAll() {
-			_.forEach(this.selected.combo, (value, name) => {
-				this.selected.combo[name] = null;
+			this.selected = {};
+
+			// init selected
+			_.forEach(this.specs, (values, name) => {
+				if(this.isMultiSku && name === this.multiSpec) {
+					return;
+				}
+				Vue.set(this.selected, name, null);
 			});
+
+			// init amount
+			if(this.isMultiSku) {
+				this.amount = {};
+				_.forEach(this.specs[this.multiSpec], (value) => {
+					Vue.set(this.amount, value, 0);
+				});
+			} else {
+				this.amount = 1;
+			}
 		},
 		checkIsDateValid(dateObj) {
 			if(!moment.isMoment(dateObj)) {
@@ -155,7 +187,7 @@ export default {
 			}
 			const price = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
 			return {
-				text: price ? `$${ price * this.selected.amount }` : '-',
+				text: price ? `$${ price }` : '-',
 				class: 'price',
 			};
 		},

@@ -2,7 +2,7 @@ import moment from 'moment';
 
 const date = [];
 const dateCursor = moment();
-for (let i = 0; i < 90; i++) {
+for (let i = 0; i < 1; i++) {
 	if([0, 1, 2, 3, 4, 5, 6].indexOf(dateCursor.day()) !== -1) {
 		date.push(dateCursor.format('YYYY-MM-DD'));
 	}
@@ -50,7 +50,7 @@ function getRandomPrice() {
 }
 
 function getRandomAmount() {
-	return _.random(1, 100) === 1 ? _.random(1, 5) : 0;
+	return _.random(1, 1) === 1 ? _.random(1, 5) : 0;
 }
 
 function getSkus(specs, options) {
