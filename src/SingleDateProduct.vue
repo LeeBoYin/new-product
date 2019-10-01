@@ -105,7 +105,7 @@ export default {
 			return _.includes(_.keys(this.specs), this.multiSpec);
 		},
 		selectedArray() {
-			const selectedArray = [];
+			let selectedArray = [];
 			if(this.isMultiSku) {
 				_.forEach(this.specs[this.multiSpec], (specValue) => {
 					const combo = _.clone(this.selected);
@@ -118,13 +118,21 @@ export default {
 						amount,
 					});
 				});
-			} else {
-				selectedArray.push({
-					combo: _.clone(this.selected),
-					amount: +this.amount,
+
+				// filter duplicate combination
+				selectedArray = _.uniqBy(selectedArray, (selected) => {
+					return JSON.stringify(selected.combo);
 				});
+			} else {
+				// 選擇至少一個規格
+				if(!_.every(this.selected, _.isNil)) {
+					selectedArray.push({
+						combo: _.clone(this.selected),
+						amount: +this.amount,
+					});
+				}
 			}
-console.log(selectedArray);
+
 			return selectedArray;
 		},
 	},
