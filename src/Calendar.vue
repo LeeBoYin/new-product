@@ -13,28 +13,28 @@
 		</div>
 		<table class="date-table">
 			<thead>
-			<tr class="row-day">
-				<th v-for="day in days" class="cell-day">{{ day }}</th>
-			</tr>
+				<tr class="row-day">
+					<th v-for="day in days" class="cell-day">{{ day }}</th>
+				</tr>
 			</thead>
 			<tbody>
-			<tr v-for="row in dates" class="row-date">
-				<td
-					v-for="dateObj in row"
-					:class="dateObj && getCellClass(dateObj)"
-					class="cell-date"
-					@click="onDateClick(dateObj)"
-					@mouseenter="onDateMouseEnter(dateObj)"
-					@mouseleave="onDateMouseLeave(dateObj)">
-					<template v-if="dateObj">
-						<div class="date-num">
-							{{ dateObj.date() }}
-						</div>
-						<div v-if="datesInfo" :class="datesInfo[dateObj.date()].class">{{ datesInfo[dateObj.date()].text }}</div>
-						<div v-if="dateObj.isSame(hoveringDateObj, 'day') && hint" class="selecting-hint">{{ hint }}</div>
-					</template>
-				</td>
-			</tr>
+				<tr v-for="row in dates" class="row-date">
+					<td
+						v-for="dateObj in row"
+						:class="dateObj && getCellClass(dateObj)"
+						class="cell-date"
+						@click="onDateClick(dateObj)"
+						@mouseenter="onDateMouseEnter(dateObj)"
+						@mouseleave="onDateMouseLeave(dateObj)">
+						<template v-if="dateObj">
+							<div class="date-num">
+								{{ dateObj.date() }}
+							</div>
+							<div v-if="datesInfo" :class="datesInfo[dateObj.date()].class">{{ datesInfo[dateObj.date()].text }}</div>
+							<div v-if="dateObj.isSame(hoveringDateObj, 'day') && hint" class="selecting-hint">{{ hint }}</div>
+						</template>
+					</td>
+				</tr>
 			</tbody>
 		</table>
 	</div>

@@ -31,7 +31,7 @@
 							v-for="value in values"
 							:key="'spec-name-' + value">
 							<label>
-								{{ value }}
+								{{ value }} ${{ skuStatus[name][value].lowestPrice }} ~ ${{ skuStatus[name][value].highestPrice }}
 								<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="skuStatus[name][value].maxAmount" />
 							</label>
 						</div>
@@ -72,17 +72,33 @@ const skus = getSkus(specs, {
 		return _.random(1, 5);
 	},
 	getPrice(combo) {
-		let a;
+		let price;
 		switch (combo.age) {
-			case '成人': a = 100; break;
-			case '兒童': a = 30; break;
-			case '老人': a = 50; break;
+			case '成人': price = 100; break;
+			case '兒童': price = 30; break;
+			case '老人': price = 50; break;
 		}
-		return a * Math.abs(specs.arrive.indexOf(combo.arrive) - specs.depart.indexOf(combo.depart));
+
+		price = price * Math.abs(specs.arrive.indexOf(combo.arrive) - specs.depart.indexOf(combo.depart));
+
+		if(_.includes([6, 0], moment(combo.date).day())) {
+			price = price * 2;
+		}
+
+		return price;
 	},
 });
-
-const skuCalculator = new SkuCalculator(specs, skus, ['age']);
+console.log(skus);
+console.log(JSON.stringify(skus));
+const skuCalculator = new SkuCalculator({
+	specs,
+	skus,
+	primarySpecs: {
+		'age': '成人',
+	},
+	hasAmount: true,
+	multiSpecs: ['age'],
+});
 window.ss = skuCalculator;
 
 export default {
@@ -108,16 +124,24 @@ export default {
 			let selectedArray = [];
 			if(this.isMultiSku) {
 				_.forEach(this.specs[this.multiSpec], (specValue) => {
-					const combo = _.clone(this.selected);
 					const amount = +_.get(this.amount, specValue, 0);
-					if(amount > 0) {
-						combo[this.multiSpec] = specValue;
+					if(amount === 0) {
+						return;
 					}
+					const combo = _.clone(this.selected);
+					combo[this.multiSpec] = specValue;
 					selectedArray.push({
 						combo,
 						amount,
 					});
 				});
+
+				if(selectedArray.length === 0) {
+					selectedArray.push({
+						combo: _.clone(this.selected),
+						amount: 0,
+					});
+				}
 
 				// filter duplicate combination
 				selectedArray = _.uniqBy(selectedArray, (selected) => {
@@ -193,15 +217,15 @@ export default {
 			if(!moment.isMoment(dateObj)) {
 				return false;
 			}
-			const price = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
+			const lowestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
+			const highestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPrice']);
 			return {
-				text: price ? `$${ price }` : '-',
+				text: lowestPrice ? `$${ lowestPrice }` + (lowestPrice < highestPrice ? '起' : '') : '-',
 				class: 'price',
 			};
 		},
 	},
 	mounted() {
-		// console.log(JSON.stringify(this.skus));
 		console.log('There are ' + this.skus.length + ' possible sku combinations');
 	},
 };
