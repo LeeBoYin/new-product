@@ -157,6 +157,13 @@ export default {
 				}
 			}
 
+			// 只留下有選 spec 的
+			selectedArray = _.filter(selectedArray, (selected) => {
+				return selected.amount > 0 || _.some(selected.combo, (value) => {
+					return !_.isNil(value);
+				});
+			});
+
 			return selectedArray;
 		},
 	},

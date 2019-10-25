@@ -173,12 +173,19 @@ const SkuCalculator = function(options) {
 						return;
 					}
 
-					const isAllMultiSpecMatch = _.every(multiSpecs, (specName) => {
-						return _.isNil(selected.combo[specName]) || selected.combo[specName] === sku.spec[specName];
-					});
+					let isValid;
+					if(_.isEmpty(multiSpecs)) {
+						isValid = _.every(selected.combo, (specValue, specName) => {
+							return _.isNil(specValue) || specValue === sku.spec[specName];
+						});
+					} else {
+						isValid = _.every(multiSpecs, (specName) => {
+							return _.isNil(selected.combo[specName]) || selected.combo[specName] === sku.spec[specName];
+						});
+					}
 
 					// 如果 selected 已經有決定數量，要看此 sku 是否有足夠數量
-					if(selected.amount && (_.isEmpty(multiSpecs) ? isAllMatch : isAllMultiSpecMatch)) {
+					if(selected.amount && isValid) {
 						// 此 sku 符合目前這個 selected 的 spec 條件，但是數量不足
 						if(sku.amount < selected.amount) {
 							return;
