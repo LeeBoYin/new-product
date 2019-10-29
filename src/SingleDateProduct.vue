@@ -20,8 +20,9 @@
 					<template v-if="!isMultiSku || name !== multiSpec">
 						<div
 							v-for="value in values"
+							:title="getSpecHint(name, value)"
 							:key="'spec-name-' + value"
-							:class="{ selected: selected[name] === value, disabled: !skuStatus[name][value].selectable }"
+							:class="{ selected: selected[name] === value, disabled: !checkIsSpecSelectable(name, value) }"
 							class="spec-value" @click="onClickSpec(name, value)">
 							<div>{{ value }}</div>
 						</div>
@@ -33,6 +34,7 @@
 							<label>
 								{{ value }} ${{ skuStatus[name][value].lowestPrice }} ~ ${{ skuStatus[name][value].highestPrice }}
 								<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="skuStatus[name][value].maxAmount" />
+								<sub>(max: {{ skuStatus[name][value].maxAmount }})</sub>
 							</label>
 						</div>
 					</template>
@@ -69,7 +71,7 @@ const skus = getSkus(specs, {
 		return combo.depart !== combo.arrive;
 	},
 	getAmount(combo) {
-		return _.random(1, 5);
+		return _.random(0, 5);
 	},
 	getPrice(combo) {
 		let price;
@@ -178,8 +180,44 @@ export default {
 		this.resetAll();
 	},
 	methods: {
+		checkIsDateValid(dateObj) {
+			if(!moment.isMoment(dateObj)) {
+				return false;
+			}
+
+			return this.checkIsSpecSelectable('date', dateObj.format('YYYY-MM-DD'));
+		},
+		checkIsSpecSelectable(specName, specValue) {
+			return _.get(this.skuStatus, [specName, specValue, 'selectable'], false) && !_.get(this.skuStatus, [specName, specValue, 'insufficient'], false);
+		},
+		getPriceInfo(dateObj) {
+			if(!moment.isMoment(dateObj)) {
+				return false;
+			}
+			let text;
+			if(this.checkIsDateValid(dateObj)) {
+				const lowestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
+				const highestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPrice']);
+				text = `$${ lowestPrice }` + (lowestPrice < highestPrice ? '起' : '');
+			} else {
+				text = '-';
+			}
+			return {
+				text: text,
+				class: 'price',
+			};
+		},
+		getSpecHint(specName, specValue) {
+			if(!_.get(this.skuStatus, [specName, specValue, 'selectable'])) {
+				return '組合不存在';
+			} else if(_.get(this.skuStatus, [specName, specValue, 'insufficient'])) {
+				return '庫存不足';
+			}
+
+			return null;
+		},
 		onClickSpec(name, value) {
-			if (!this.skuStatus[name][value].selectable) {
+			if(!this.checkIsSpecSelectable(name, value)) {
 				return;
 			}
 
@@ -212,24 +250,6 @@ export default {
 			} else {
 				this.amount = 1;
 			}
-		},
-		checkIsDateValid(dateObj) {
-			if(!moment.isMoment(dateObj)) {
-				return false;
-			}
-
-			return !!_.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'selectable']);
-		},
-		getPriceInfo(dateObj) {
-			if(!moment.isMoment(dateObj)) {
-				return false;
-			}
-			const lowestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
-			const highestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPrice']);
-			return {
-				text: lowestPrice ? `$${ lowestPrice }` + (lowestPrice < highestPrice ? '起' : '') : '-',
-				class: 'price',
-			};
 		},
 	},
 	mounted() {

@@ -13,9 +13,9 @@ const SkuCalculator = function(options) {
 
 	const statisticsOfAll = {
 		maxAmount: hasAmount ? 0 : null,
-		lowestPrice: Infinity,
+		lowestPrice: null,
 		lowestPricePrimary: null,
-		highestPrice: 0,
+		highestPrice: null,
 		highestPricePrimary: null,
 		validSkusIdx: _.keys(skus),
 		cheapestSkusIdx: [],
@@ -35,9 +35,10 @@ const SkuCalculator = function(options) {
 				statisticsOfSpec[specName][specValue] = {
 					selectable: false,
 					maxAmount: hasAmount ? 0 : null,
-					lowestPrice: Infinity,
+					insufficient: hasAmount ? true : null,
+					lowestPrice: null,
 					lowestPricePrimary: null,
-					highestPrice: 0,
+					highestPrice: null,
 					highestPricePrimary: null,
 					cheapestSkusIdx: [],
 				};
@@ -48,6 +49,7 @@ const SkuCalculator = function(options) {
 			if(hasAmount) {
 				if(sku.amount) {
 					statisticsOfThisSpec.selectable = true;
+					statisticsOfThisSpec.insufficient = false;
 				}
 				if(sku.amount > statisticsOfThisSpec.maxAmount) {
 					statisticsOfThisSpec.maxAmount = sku.amount;
@@ -59,24 +61,24 @@ const SkuCalculator = function(options) {
 				statisticsOfThisSpec.selectable = true;
 			}
 
-			if(sku.price < statisticsOfThisSpec.lowestPrice) {
+			if(_.isNil(statisticsOfThisSpec.lowestPrice) || sku.price < statisticsOfThisSpec.lowestPrice) {
 				statisticsOfThisSpec.lowestPrice = sku.price;
 				statisticsOfThisSpec.cheapestSkusIdx = [skuIdx];
-			} else if(sku.price === statisticsOfThisSpec.lowestPrice) {
+			} else if(_.isNil(statisticsOfThisSpec.lowestPrice) || sku.price === statisticsOfThisSpec.lowestPrice) {
 				statisticsOfThisSpec.cheapestSkusIdx.push(skuIdx);
 				statisticsOfThisSpec.cheapestSkusIdx = _.uniq(statisticsOfThisSpec.cheapestSkusIdx);
 			}
-			if(sku.price < statisticsOfAll.lowestPrice) {
+			if(_.isNil(statisticsOfAll.lowestPrice) || sku.price < statisticsOfAll.lowestPrice) {
 				statisticsOfAll.lowestPrice = sku.price;
 				statisticsOfAll.cheapestSkusIdx = [skuIdx];
-			} else if(sku.price === statisticsOfAll.lowestPrice) {
+			} else if(_.isNil(statisticsOfAll.lowestPrice) || sku.price === statisticsOfAll.lowestPrice) {
 				statisticsOfAll.cheapestSkusIdx.push(skuIdx);
 				statisticsOfAll.cheapestSkusIdx = _.uniq(statisticsOfAll.cheapestSkusIdx);
 			}
-			if(sku.price > statisticsOfThisSpec.highestPrice) {
+			if(_.isNil(statisticsOfThisSpec.highestPrice) || sku.price > statisticsOfThisSpec.highestPrice) {
 				statisticsOfThisSpec.highestPrice = sku.price;
 			}
-			if(sku.price > statisticsOfAll.highestPrice) {
+			if(_.isNil(statisticsOfAll.highestPrice) || sku.price > statisticsOfAll.highestPrice) {
 				statisticsOfAll.highestPrice = sku.price;
 			}
 
@@ -135,9 +137,10 @@ const SkuCalculator = function(options) {
 					tempStatus[selectedIdx][specName][specValue] = {
 						selectable: false,
 						maxAmount: hasAmount ? 0 : null,
-						lowestPrice: Infinity,
+						insufficient: hasAmount ? true : null,
+						lowestPrice: null,
 						lowestPricePrimary: null,
-						highestPrice: 0,
+						highestPrice: null,
 						highestPricePrimary: null,
 						cheapestSkusIdx: [],
 					};
@@ -167,28 +170,26 @@ const SkuCalculator = function(options) {
 					targetedAmount[skuIdx] = selected.amount;
 				}
 
+				let isSkuSufficient = true;
 				if(hasAmount) {
 					// 跳過數量不足的 sku
 					if(!sku.amount) {
-						return;
-					}
-
-					let isValid;
-					if(_.isEmpty(multiSpecs)) {
-						isValid = _.every(selected.combo, (specValue, specName) => {
-							return _.isNil(specValue) || specValue === sku.spec[specName];
-						});
+						isSkuSufficient = false;
 					} else {
-						isValid = _.every(multiSpecs, (specName) => {
-							return _.isNil(selected.combo[specName]) || selected.combo[specName] === sku.spec[specName];
-						});
-					}
+						let isNeedCheckAmount = false;
+						if(_.isEmpty(multiSpecs)) {
+							isNeedCheckAmount = true;
+						} else {
+							// multiSpecs 必須吻合才做數量判斷
+							isNeedCheckAmount = _.every(multiSpecs, (specName) => {
+								return _.isNil(selected.combo[specName]) || selected.combo[specName] === sku.spec[specName];
+							});
+						}
 
-					// 如果 selected 已經有決定數量，要看此 sku 是否有足夠數量
-					if(selected.amount && isValid) {
-						// 此 sku 符合目前這個 selected 的 spec 條件，但是數量不足
-						if(sku.amount < selected.amount) {
-							return;
+						// 如果 selected 已經有決定數量，要看此 sku 是否有足夠數量
+						if(isNeedCheckAmount && sku.amount < selected.amount) {
+							// 此 sku 符合目前這個 selected 的 spec 條件，但是數量不足
+							isSkuSufficient = false;
 						}
 					}
 				}
@@ -221,13 +222,24 @@ const SkuCalculator = function(options) {
 					const statusOfThisSelected = tempStatus[selectedIdx][specName][specValue];
 					statusOfThisSelected.selectable = true;
 
+					// is insufficient
+					if(hasAmount) {
+						if(!isSkuSufficient) {
+							// 數量不足時，不計算其他統計
+							return;
+						}
+
+						// 只要有一個 sku 數量足夠，這個 spec 就是 sufficient
+						statusOfThisSelected.insufficient = false;
+					}
+
 					// max amount
 					if(hasAmount && sku.amount > statusOfThisSelected.maxAmount) {
 						statusOfThisSelected.maxAmount = sku.amount;
 					}
 
 					// lowest price
-					if(sku.price < statusOfThisSelected.lowestPrice) {
+					if(_.isNil(statusOfThisSelected.lowestPrice) || sku.price < statusOfThisSelected.lowestPrice) {
 						statusOfThisSelected.lowestPrice = sku.price;
 						statusOfThisSelected.cheapestSkusIdx = [skuIdx];
 					} else if(sku.price === statusOfThisSelected.lowestPrice) {
@@ -236,7 +248,7 @@ const SkuCalculator = function(options) {
 					}
 
 					// highest price
-					if(sku.price > statusOfThisSelected.highestPrice) {
+					if(_.isNil(statusOfThisSelected.highestPrice) || sku.price > statusOfThisSelected.highestPrice) {
 						statusOfThisSelected.highestPrice = sku.price;
 					}
 
@@ -277,42 +289,47 @@ const SkuCalculator = function(options) {
 					return status[specName][specValue].selectable;
 				});
 
+				// 組合不存在
 				if(!statusOfThisSpec.selectable) {
-					statusOfThisSpec.maxAmount = hasAmount ? 0 : null;
-					statusOfThisSpec.lowestPrice = null;
-					statusOfThisSpec.highestPrice = null;
-					statusOfThisSpec.lowestPricePrimary = null;
-					statusOfThisSpec.highestPricePrimary = null;
-					statusOfThisSpec.cheapestSkusIdx = null;
+					_.forEach(statusOfThisSpec, (value, key) => {
+						if(key !== 'selectable') {
+							statusOfThisSpec[key] = null;
+						}
+					});
 					return;
 				}
 
-				// max amount
 				if(hasAmount) {
+					// is insufficient
+					statusOfThisSpec.insufficient = _.some(tempStatus, (status) => {
+						return status[specName][specValue].insufficient;
+					});
+
+					// max amount
 					statusOfThisSpec.maxAmount = _.get(_.minBy(_.values(tempStatus), (status) => {
 						return status[specName][specValue].maxAmount;
 					}), [specName, specValue, 'maxAmount'], 0);
 				}
 
 				// lowest price
-				statusOfThisSpec.lowestPrice = _.get(_.minBy(_.values(tempStatus), (status) => {
+				statusOfThisSpec.lowestPrice = _.min(_.map(tempStatus, (status) => {
 					return status[specName][specValue].lowestPrice;
-				}), [specName, specValue, 'lowestPrice'], null);
+				})) || statusOfThisSpec.lowestPrice;
 
 				// highest price
-				statusOfThisSpec.highestPrice = _.get(_.maxBy(_.values(tempStatus), (status) => {
+				statusOfThisSpec.highestPrice = _.max(_.map(tempStatus, (status) => {
 					return status[specName][specValue].highestPrice;
-				}), [specName, specValue, 'highestPrice'], null);
+				})) || statusOfThisSpec.highestPrice;
 
 				// lowest price primary
-				statusOfThisSpec.lowestPricePrimary = _.get(_.minBy(_.values(tempStatus), (status) => {
+				statusOfThisSpec.lowestPricePrimary = _.min(_.map(tempStatus, (status) => {
 					return status[specName][specValue].lowestPricePrimary;
-				}), [specName, specValue, 'lowestPricePrimary'], null);
+				})) || statusOfThisSpec.lowestPricePrimary;
 
 				// highest price primary
-				statusOfThisSpec.highestPricePrimary = _.get(_.maxBy(_.values(tempStatus), (status) => {
+				statusOfThisSpec.highestPricePrimary = _.max(_.map(tempStatus, (status) => {
 					return status[specName][specValue].highestPricePrimary;
-				}), [specName, specValue, 'highestPricePrimary'], null);
+				})) || statusOfThisSpec.highestPricePrimary;
 
 				// cheapest skus idx
 				statusOfThisSpec.cheapestSkusIdx = _.union(..._.map(_.filter(_.values(tempStatus), (status) => {
