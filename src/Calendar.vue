@@ -14,11 +14,11 @@
 		<table class="date-table">
 			<thead>
 				<tr class="row-day">
-					<th v-for="day in days" class="cell-day">{{ day }}</th>
+					<th v-for="dayName in daysName" class="cell-day">{{ dayName }}</th>
 				</tr>
 			</thead>
 			<tbody>
-				<tr v-for="row in dates" class="row-date">
+				<tr v-for="row in dateRows" class="row-date">
 					<td
 						v-for="dateObj in row"
 						:class="dateObj && getCellClass(dateObj)"
@@ -107,39 +107,39 @@ export default {
 		};
 	},
 	computed: {
-		days() {
+		daysName() {
 			return _.times(7).map((d) => {
 				return moment().day(this.startWeekDay + d).format('dd');
 			});
 		},
-		dates() {
-			const dateArray = [];
+		dateRows() {
+			const dateRow = [];
 			const dateObjCursor = this.displayMoment.clone();
 			let dayCursor = this.startWeekDay;
 			let dateCursor = 1;
-			let weekCursor = 0;
+			let rowIdx = 0;
 
 			while(dateCursor <= this.displayMoment.daysInMonth()) {
 				dateObjCursor.date(dateCursor);
 				// create new date row
-				if(dateArray.length === weekCursor) {
-					dateArray.push([]);
+				if(dateRow.length === rowIdx) {
+					dateRow.push([]);
 				}
 
 				if(dateObjCursor.day() === dayCursor) {
-					dateArray[weekCursor].push(dateObjCursor.clone());
+					dateRow[rowIdx].push(dateObjCursor.clone());
 					dateCursor++;
 				} else {
-					dateArray[weekCursor].push(null);
+					dateRow[rowIdx].push(null);
 				}
 
 				dayCursor = (dayCursor + 1) % 7;
-				if(dateArray[weekCursor].length === 7) {
-					weekCursor++;
+				if(dateRow[rowIdx].length === 7) {
+					rowIdx++;
 				}
 			}
 
-			return dateArray;
+			return dateRow;
 		},
 		datesInfo() {
 			if(!_.isFunction(this.getInfo)) {

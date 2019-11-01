@@ -5,7 +5,7 @@
 		<div class="row">
 			<div v-if="specs.date" class="col-md-6">
 				<Calendar
-					v-model="selected.date"
+					v-model="selectedSpec.date"
 					@input="onDateChange"
 					:start-week-day="1"
 					:is-multiple-date="false"
@@ -22,7 +22,7 @@
 							v-for="value in values"
 							:title="getSpecHint(name, value)"
 							:key="'spec-name-' + value"
-							:class="{ selected: selected[name] === value, disabled: !checkIsSpecSelectable(name, value) }"
+							:class="{ selected: selectedSpec[name] === value, disabled: !checkIsSpecSelectable(name, value) }"
 							class="spec-value" @click="onClickSpec(name, value)">
 							<div>{{ value }}</div>
 						</div>
@@ -67,23 +67,23 @@ const specs = specData.THSR;
 const skus = getSkus(specs, {
 	hasDate: true,
 	// hasTime: true,
-	isValid(combo) {
-		return combo.depart !== combo.arrive;
+	isValid(spec) {
+		return spec.depart !== spec.arrive;
 	},
-	getAmount(combo) {
+	getAmount(spec) {
 		return _.random(0, 5);
 	},
-	getPrice(combo) {
+	getPrice(spec) {
 		let price;
-		switch (combo.age) {
+		switch (spec.age) {
 			case '成人': price = 100; break;
 			case '兒童': price = 30; break;
 			case '老人': price = 50; break;
 		}
 
-		price = price * Math.abs(specs.arrive.indexOf(combo.arrive) - specs.depart.indexOf(combo.depart));
+		price = price * Math.abs(specs.arrive.indexOf(spec.arrive) - specs.depart.indexOf(spec.depart));
 
-		if(_.includes([6, 0], moment(combo.date).day())) {
+		if(_.includes([6, 0], moment(spec.date).day())) {
 			price = price * 2;
 		}
 
@@ -111,7 +111,7 @@ export default {
 		return {
 			specs: specs,
 			skus: skus,
-			selected: {},
+			selectedSpec: {},
 			skuStatus: skuCalculator.skuStatus,
 			statistics: skuCalculator.statistics,
 			multiSpec: 'age',
@@ -122,56 +122,56 @@ export default {
 		isMultiSku() {
 			return _.includes(_.keys(this.specs), this.multiSpec);
 		},
-		selectedArray() {
-			let selectedArray = [];
+		selectionArray() {
+			let selectionArray = [];
 			if(this.isMultiSku) {
 				_.forEach(this.specs[this.multiSpec], (specValue) => {
 					const amount = +_.get(this.amount, specValue, 0);
 					if(amount === 0) {
 						return;
 					}
-					const combo = _.clone(this.selected);
-					combo[this.multiSpec] = specValue;
-					selectedArray.push({
-						combo,
+					const spec = _.clone(this.selectedSpec);
+					spec[this.multiSpec] = specValue;
+					selectionArray.push({
+						spec,
 						amount,
 					});
 				});
 
-				if(selectedArray.length === 0) {
-					selectedArray.push({
-						combo: _.clone(this.selected),
+				if(selectionArray.length === 0) {
+					selectionArray.push({
+						spec: _.clone(this.selectedSpec),
 						amount: 0,
 					});
 				}
 
 				// filter duplicate combination
-				selectedArray = _.uniqBy(selectedArray, (selected) => {
-					return JSON.stringify(selected.combo);
+				selectionArray = _.uniqBy(selectionArray, (selection) => {
+					return JSON.stringify(selection.spec);
 				});
 			} else {
 				// 選擇至少一個規格
-				if(!_.every(this.selected, _.isNil)) {
-					selectedArray.push({
-						combo: _.clone(this.selected),
+				if(!_.every(this.selectedSpec, _.isNil)) {
+					selectionArray.push({
+						spec: _.clone(this.selectedSpec),
 						amount: +this.amount,
 					});
 				}
 			}
 
 			// 只留下有選 spec 的
-			selectedArray = _.filter(selectedArray, (selected) => {
-				return selected.amount > 0 || _.some(selected.combo, (value) => {
+			selectionArray = _.filter(selectionArray, (selection) => {
+				return selection.amount > 0 || _.some(selection.spec, (value) => {
 					return !_.isNil(value);
 				});
 			});
 
-			return selectedArray;
+			return selectionArray;
 		},
 	},
 	watch: {
-		selectedArray() {
-			skuCalculator.setSelectedArray(this.selectedArray);
+		selectionArray() {
+			skuCalculator.setSelectionArray(this.selectionArray);
 			this.skuStatus = _.cloneDeep(skuCalculator.skuStatus);
 			this.statistics = _.cloneDeep(skuCalculator.statistics);
 		},
@@ -221,24 +221,24 @@ export default {
 				return;
 			}
 
-			if (this.selected[name] === value) {
-				this.selected[name] = null;
+			if (this.selectedSpec[name] === value) {
+				this.selectedSpec[name] = null;
 			} else {
-				this.selected[name] = value;
+				this.selectedSpec[name] = value;
 			}
 		},
 		onDateChange(date) {
-			this.selected['date'] = date;
+			this.selectedSpec['date'] = date;
 		},
 		resetAll() {
-			this.selected = {};
+			this.selectedSpec = {};
 
 			// init selected
 			_.forEach(this.specs, (values, name) => {
 				if(this.isMultiSku && name === this.multiSpec) {
 					return;
 				}
-				Vue.set(this.selected, name, null);
+				Vue.set(this.selectedSpec, name, null);
 			});
 
 			// init amount
