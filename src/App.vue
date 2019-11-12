@@ -90,4 +90,8 @@ export default {
 	.calendar .selected.selected-end .price {
 		color: #FFFFFF;
 	}
+	.calendar .disabled .price {
+		font-size: 12px;
+		color: #AAAAAA;
+	}
 </style>

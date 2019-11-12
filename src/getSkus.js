@@ -1,20 +1,4 @@
-import moment from 'moment';
-
-const date = [];
-const dateCursor = moment();
-for (let i = 0; i < 30; i++) {
-	if([0, 1, 2, 3, 4, 5, 6].indexOf(dateCursor.day()) !== -1) {
-		date.push(dateCursor.format('YYYY-MM-DD'));
-	}
-	dateCursor.add(1, 'd');
-}
-
-const time = [
-	'10:00',
-	'12:00',
-];
-
-function getSkuCombos(_specs, _prefix = {}) {
+function getAllSpecCombinations(_specs, _prefix = {}) {
 	const types = _.keys(_specs);
 	if (!types.length) {
 		return _prefix;
@@ -23,47 +7,42 @@ function getSkuCombos(_specs, _prefix = {}) {
 	const firstType = types[0];
 	const firstSpec = _specs[firstType];
 
-	let skuCombos = [];
+	let combinations = [];
 	_.forEach(firstSpec, (value) => {
 		const otherSecs = _.cloneDeep(_specs);
 		delete otherSecs[firstType];
-		skuCombos = _.concat(skuCombos, getSkuCombos(otherSecs, _.assign({[firstType]: value}, _prefix)));
+		combinations = _.concat(combinations, getAllSpecCombinations(otherSecs, _.assign({[firstType]: value}, _prefix)));
 	});
-	return skuCombos;
-}
-
-function getPriceByEventTime(date, time) {
-	const d = new Date(date + ' ' + time);
-	return (d.getTime() / 3600000 % 9 + 2) * 5;
-}
-
-function getRandomPrice() {
-	return _.random(1, 10) * 10;
+	return combinations;
 }
 
 function getRandomAmount() {
 	return _.random(1, 5) === 1 ? _.random(1, 5) : 0;
 }
 
+function getRandomPrice() {
+	return _.random(1, 10) * 10;
+}
+
 function getSkus(specs, options) {
 	options = options || {};
-	if(options.hasDate) {
-		specs.date = date;
+	if(options.date) {
+		specs.date = options.date;
 	}
-	if(options.hasTime) {
-		specs.time = time;
+	if(options.time) {
+		specs.time = options.time;
 	}
 
-	const skuCombos = getSkuCombos(specs);
+	const allSpecs = getAllSpecCombinations(specs);
 	const skus = [];
-	_.forEach(skuCombos, (combo) => {
-		if(options.isValid && !options.isValid(combo)) {
+	_.forEach(allSpecs, (spec) => {
+		if(options.isValid && !options.isValid(spec)) {
 			return;
 		}
 		skus.push({
-			spec: combo,
-			amount: options.getAmount ? options.getAmount(combo) : getRandomAmount(),
-			price: options.getPrice ? options.getPrice(combo) : getRandomPrice(),
+			spec: spec,
+			amount: options.getAmount ? options.getAmount(spec) : getRandomAmount(),
+			price: options.getPrice ? options.getPrice(spec) : getRandomPrice(),
 		});
 	});
 

@@ -63,17 +63,32 @@ import specData from './specData.js';
 import getSkus from './getSkus.js';
 import SkuCalculator from './skuCalculator.js';
 
-const multiTicketMode = true;
+// setup spec, sku data
 const specs = specData.THSR;
+const date = [];
+const dateCursor = moment();
+for (let i = 0; i < 30; i++) {
+	date.push(dateCursor.format('YYYY-MM-DD'));
+	dateCursor.add(1, 'd');
+}
+const isMultiChoiceMode = true;
 const skus = getSkus(specs, {
-	hasDate: true,
-	hasTime: true,
+	// 日期
+	date: date,
+	// 場次
+	time: [
+		'10:00',
+		'12:00',
+	],
+	// 組成 sku 的規格條件
 	isValid(spec) {
 		return spec.depart !== spec.arrive;
 	},
+	// sku 數量
 	getAmount(spec) {
 		return _.random(0, 5);
 	},
+	// sku 價格
 	getPrice(spec) {
 		let price;
 		switch (spec.age) {
@@ -86,7 +101,7 @@ const skus = getSkus(specs, {
 		price = price * Math.abs(specs.arrive.indexOf(spec.arrive) - specs.depart.indexOf(spec.depart));
 
 		// double price on weekends
-		if(_.includes([6, 0], moment(spec.date).day())) {
+		if(spec.date && _.includes([6, 0], moment(spec.date).day())) {
 			price = price * 2;
 		}
 
@@ -96,6 +111,8 @@ const skus = getSkus(specs, {
 		return price;
 	},
 });
+
+// initialize sku calculator
 const skuCalculator = new SkuCalculator({
 	specs,
 	skus,
@@ -103,7 +120,7 @@ const skuCalculator = new SkuCalculator({
 		'age': '成人',
 	},
 	hasAmount: true,
-	multiSpecs: multiTicketMode ? ['age'] : null,
+	multiSpecs: isMultiChoiceMode ? ['age'] : null,
 });
 
 // log sku result
@@ -121,7 +138,7 @@ export default {
 			selectedSpec: {},
 			specStatus: skuCalculator.specStatus,
 			statistics: skuCalculator.statistics,
-			multiChoiceSpecName: multiTicketMode ? 'age' : null,
+			multiChoiceSpecName: isMultiChoiceMode ? 'age' : null,
 			amount: null,
 		};
 	},
