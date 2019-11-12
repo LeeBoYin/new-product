@@ -32,9 +32,9 @@
 							v-for="value in values"
 							:key="'spec-name-' + value">
 							<label>
-								{{ value }} ${{ skuStatus[name][value].lowestPrice }} ~ ${{ skuStatus[name][value].highestPrice }}
-								<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="skuStatus[name][value].maxAmount" />
-								<sub>(max: {{ skuStatus[name][value].maxAmount }})</sub>
+								{{ value }} ${{ specStatus[name][value].lowestPrice }} ~ ${{ specStatus[name][value].highestPrice }}
+								<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="specStatus[name][value].maxAmount" />
+								<sub>(max: {{ specStatus[name][value].maxAmount }})</sub>
 							</label>
 						</div>
 					</template>
@@ -48,6 +48,8 @@
 			</div>
 		</div>
 		<div>There are {{ statistics.validSkusIdx.length }} units you can choose from.</div>
+		<div>Roughly {{ statistics.loopCount }} loops.</div>
+
 		<!--<ul v-if="false">-->
 			<!--<li v-for="idx in validSkusIdx">{{ skus[idx] | skuDisplayText }}</li>-->
 		<!--</ul>-->
@@ -77,15 +79,21 @@ const skus = getSkus(specs, {
 		let price;
 		switch (spec.age) {
 			case '成人': price = 100; break;
-			case '兒童': price = 30; break;
+			case '學生': price = 80; break;
 			case '老人': price = 50; break;
+			case '兒童': price = 30; break;
 		}
 
+		// price is proportional to distance from depart to arrive
 		price = price * Math.abs(specs.arrive.indexOf(spec.arrive) - specs.depart.indexOf(spec.depart));
 
+		// double price on weekends
 		if(_.includes([6, 0], moment(spec.date).day())) {
 			price = price * 2;
 		}
+
+		// add some random number
+		price += _.random(0, 20) * 5;
 
 		return price;
 	},
@@ -101,7 +109,6 @@ const skuCalculator = new SkuCalculator({
 	hasAmount: true,
 	multiSpecs: ['age'],
 });
-window.ss = skuCalculator;
 
 export default {
 	components: {
@@ -112,7 +119,7 @@ export default {
 			specs: specs,
 			skus: skus,
 			selectedSpec: {},
-			skuStatus: skuCalculator.skuStatus,
+			specStatus: skuCalculator.specStatus,
 			statistics: skuCalculator.statistics,
 			multiSpec: 'age',
 			amount: null,
@@ -172,7 +179,7 @@ export default {
 	watch: {
 		selectionArray() {
 			skuCalculator.setSelectionArray(this.selectionArray);
-			this.skuStatus = _.cloneDeep(skuCalculator.skuStatus);
+			this.specStatus = _.cloneDeep(skuCalculator.specStatus);
 			this.statistics = _.cloneDeep(skuCalculator.statistics);
 		},
 	},
@@ -188,7 +195,7 @@ export default {
 			return this.checkIsSpecSelectable('date', dateObj.format('YYYY-MM-DD'));
 		},
 		checkIsSpecSelectable(specName, specValue) {
-			return _.get(this.skuStatus, [specName, specValue, 'selectable'], false) && !_.get(this.skuStatus, [specName, specValue, 'insufficient'], false);
+			return _.get(this.specStatus, [specName, specValue, 'selectable'], false) && !_.get(this.specStatus, [specName, specValue, 'insufficient'], false);
 		},
 		getPriceInfo(dateObj) {
 			if(!moment.isMoment(dateObj)) {
@@ -196,8 +203,8 @@ export default {
 			}
 			let text;
 			if(this.checkIsDateValid(dateObj)) {
-				const lowestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
-				const highestPrice = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPricePrimary']) || _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPrice']);
+				const lowestPrice = _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPricePrimary']) || _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
+				const highestPrice = _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPricePrimary']) || _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPrice']);
 				text = `$${ lowestPrice }` + (lowestPrice < highestPrice ? '起' : '');
 			} else {
 				text = '-';
@@ -208,9 +215,9 @@ export default {
 			};
 		},
 		getSpecHint(specName, specValue) {
-			if(!_.get(this.skuStatus, [specName, specValue, 'selectable'])) {
+			if(!_.get(this.specStatus, [specName, specValue, 'selectable'])) {
 				return '組合不存在';
-			} else if(_.get(this.skuStatus, [specName, specValue, 'insufficient'])) {
+			} else if(_.get(this.specStatus, [specName, specValue, 'insufficient'])) {
 				return '庫存不足';
 			}
 

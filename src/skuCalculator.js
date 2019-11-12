@@ -8,7 +8,7 @@ const SkuCalculator = function(options) {
 	const multiSpecs = options.multiSpecs || [];
 
 	let selectionArray = [];
-	const skuStatus = {};
+	const specStatus = {};
 	const statistics = {};
 
 	const statisticsOfAll = {
@@ -111,6 +111,7 @@ const SkuCalculator = function(options) {
 		determinedAmount: null,
 		validSkusIdx: statisticsOfAll.validSkusIdx,
 		cheapestSkusIdx: statisticsOfAll.cheapestSkusIdx,
+		loopCount: 0,
 	};
 
 	function checkIsSkuPrimary(sku) {
@@ -120,18 +121,23 @@ const SkuCalculator = function(options) {
 	}
 
 	function refresh() {
+		let loopCount = 0;
 		// 每個 selection 建立一套 spec status 的統計結果
 		const selectionStatus = {};
 		// 每個 selection 建立一套 valid sku idx
 		const validSkusIdx = {};
+		// 每個 selection 建立一套 invalid sku idx
+		const skuSpecValid = {};
 		// 記錄完全符合 selection 的 sku
 		const determinedAmount = {};
 		_.forEach(selectionArray, (selection, selectionIdx) => {
 			selectionStatus[selectionIdx] = {};
 			validSkusIdx[selectionIdx] = [];
+			skuSpecValid[selectionIdx] = {};
 			_.forEach(specs, (values, specName) => {
 				selectionStatus[selectionIdx][specName] = {};
 				_.forEach(values, (specValue) => {
+					loopCount++;
 					selectionStatus[selectionIdx][specName][specValue] = {
 						selectable: false,
 						maxAmount: hasAmount ? 0 : null,
@@ -184,6 +190,7 @@ const SkuCalculator = function(options) {
 
 				let isSkuValidByThisSelection = false;
 				_.forEach(_.keys(specs), (specName) => {
+					loopCount++;
 					const specValue = sku.spec[specName];
 
 					// 符合其他 spec 的 sku 就算是 valid
@@ -261,12 +268,13 @@ const SkuCalculator = function(options) {
 			});
 		});
 
-		// compute skuStatus
+		// compute specStatus
 		_.forEach(specs, (values, specName) => {
-			skuStatus[specName] = {};
+			specStatus[specName] = {};
 			_.forEach(values, (specValue) => {
+				loopCount++;
 				// reset sku status
-				const statusOfThisSpec = skuStatus[specName][specValue] = _.clone(statisticsOfSpec[specName][specValue]);
+				const statusOfThisSpec = specStatus[specName][specValue] = _.clone(statisticsOfSpec[specName][specValue]);
 
 				if(_.isEmpty(selectionStatus)) {
 					return;
@@ -280,6 +288,7 @@ const SkuCalculator = function(options) {
 				// 組合不存在
 				if(!statusOfThisSpec.selectable) {
 					_.forEach(statusOfThisSpec, (value, key) => {
+						loopCount++;
 						if(key !== 'selectable') {
 							statusOfThisSpec[key] = null;
 						}
@@ -335,24 +344,25 @@ const SkuCalculator = function(options) {
 			_.assign(statistics, statisticsOfAll);
 		} else {
 			_.forEach(selectionArray, (selection, selectionIdx) => {
+				loopCount++;
 				// 所有 selection spec max amount 的最小值
 				if(hasAmount) {
 					// maxAmount: 一個 selection 的 selection specs 取 min，每個 selection 之中取 max
 					const maxAmountOfSelection = _.min([statisticsOfAll.maxAmount, ..._.map(selection.spec, (specValue, specName) => {
-						return _.get(skuStatus, [specName, specValue, 'maxAmount'], null);
+						return _.get(specStatus, [specName, specValue, 'maxAmount'], null);
 					})]);
 					statistics.maxAmount = _.max([maxAmountOfSelection, statistics.maxAmount]);
 				}
 
 				// lowestPrice: 一個 selection 的 selection specs 取 max，每個 selection 之中取 min
 				const lowestPriceOfSelection = _.max([statisticsOfAll.lowestPrice, ..._.map(selection.spec, (specValue, specName) => {
-					return _.get(skuStatus, [specName, specValue, 'lowestPrice'], null);
+					return _.get(specStatus, [specName, specValue, 'lowestPrice'], null);
 				})]);
 				if(!_.every(selection.spec, _.isNil) && !_.isNil(lowestPriceOfSelection)) {
 					// cheapest skus idx
 					const cheapestSkusIdx = _.reduce(selection.spec, (result, specValue, specName) => {
-						if(_.get(skuStatus, [specName, specValue, 'lowestPrice']) === lowestPriceOfSelection) {
-							result = _.uniq(result.concat(_.get(skuStatus, [specName, specValue, 'cheapestSkusIdx'])));
+						if(_.get(specStatus, [specName, specValue, 'lowestPrice']) === lowestPriceOfSelection) {
+							result = _.uniq(result.concat(_.get(specStatus, [specName, specValue, 'cheapestSkusIdx'])));
 						}
 						return result;
 					}, []);
@@ -367,7 +377,7 @@ const SkuCalculator = function(options) {
 
 				// highestPrice: 一個 selection 的 selection specs 取 min，每個 selection 之中取 max
 				const highestPriceOfSelection = _.min([statisticsOfAll.highestPrice, ..._.map(selection.spec, (specValue, specName) => {
-					return _.get(skuStatus, [specName, specValue, 'highestPrice'], null);
+					return _.get(specStatus, [specName, specValue, 'highestPrice'], null);
 				})]);
 				statistics.highestPrice = _.max([highestPriceOfSelection, statistics.highestPrice]);
 
@@ -377,22 +387,24 @@ const SkuCalculator = function(options) {
 				if(isSelectionPrimary) {
 					// lowestPricePrimary: 一個 selection 的 selection specs 取 max，每個 selection 之中取 min
 					const lowestPricePrimaryOfSelection = _.max(_.map(selection.spec, (specValue, specName) => {
-						return _.get(skuStatus, [specName, specValue, 'lowestPricePrimary']);
+						return _.get(specStatus, [specName, specValue, 'lowestPricePrimary']);
 					}));
 					statistics.lowestPricePrimary = _.min([lowestPricePrimaryOfSelection, statistics.lowestPricePrimary]);
 
 					// highestPricePrimary: 一個 selection 的 selection specs 取 min，每個 selection 之中取 max
 					const highestPricePrimaryOfSelection = _.min(_.map(selection.spec, (specValue, specName) => {
-						return _.get(skuStatus, [specName, specValue, 'highestPricePrimary']);
+						return _.get(specStatus, [specName, specValue, 'highestPricePrimary']);
 					}));
 					statistics.highestPricePrimary = _.max([highestPricePrimaryOfSelection, statistics.highestPricePrimary]);
 				}
 			});
+
+			// validSkusIdx: 所有 selection valid sku 的交集
+			statistics.validSkusIdx = _.intersection(..._.values(validSkusIdx));
 		}
 
-		// validSkusIdx: 所有 selection valid sku 的交集
-		statistics.validSkusIdx = _.intersection(..._.values(validSkusIdx));
 		statistics.determinedAmount = determinedAmount;
+		statistics.loopCount = loopCount;
 	}
 
 	// init
@@ -403,7 +415,7 @@ const SkuCalculator = function(options) {
 		selectionArray = _selectionArray;
 		refresh();
 	};
-	this.skuStatus = skuStatus;
+	this.specStatus = specStatus;
 	this.statistics = statistics;
 };
 
