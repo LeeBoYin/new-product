@@ -1,8 +1,8 @@
 <template>
 	<div class="container">
 		<h1>Single Date</h1>
-		<button @click="singleDate = '2019/09/01'">2019/09/01</button>
-		<button @click="singleDate = '2019/09/04'">2019/09/04</button>
+		<button @click="singleDate = '2019/10/01'">2019/10/01</button>
+		<button @click="singleDate = '2019/10/02'">2019/10/02</button>
 		<Calendar
 			v-model="singleDate"
 			ref="calendar"

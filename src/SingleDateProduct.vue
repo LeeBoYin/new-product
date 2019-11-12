@@ -5,7 +5,7 @@
 		<div class="row">
 			<div v-if="specs.date" class="col-md-6">
 				<Calendar
-					v-model="selected.combo.date"
+					v-model="selectedSpec.date"
 					@input="onDateChange"
 					:start-week-day="1"
 					:is-multiple-date="false"
@@ -15,44 +15,42 @@
 				</Calendar>
 			</div>
 			<div class="col-md-6">
-				<div v-for="(values, name) in specs" v-if="name !== 'date'" :key="'spec-row-' + name" class="spec-row">
+				<!-- single choice specs -->
+				<div v-for="(values, name) in singleChoiceSpecs" v-if="name !== 'date'" :key="'spec-row-' + name" class="spec-row">
 					<div class="spec-name">{{ name }}</div>
-					<!--<template v-if="name !== multiSpec">-->
-						<div
-							v-for="value in values"
-							:key="'spec-name-' + value"
-							:class="{ selected: selected.combo[name] === value, disabled: !skuStatus[name][value].selectable }"
-							class="spec-value" @click="onClickSpec(name, value)">
-							<div>{{ value }}</div>
-							<div v-if="['date'].indexOf(name) !== -1" class="lowest-price">
-								<template v-if="skuStatus[name][value].lowestPrice === null">-</template>
-								<template v-else>from ${{ skuStatus[name][value].lowestPrice * selected.amount }}</template>
-							</div>
-						</div>
-					<!--</template>-->
-					<!--<template v-else>-->
-						<!--<div-->
-							<!--v-for="value in values"-->
-							<!--:key="'spec-name-' + value">-->
-							<!--<label>-->
-								<!--{{ value }}-->
-								<!--<input class="amount-input" type="number" min="0" :max="skuStatus[name][value].maxAmount" />-->
-							<!--</label>-->
-						<!--</div>-->
-					<!--</template>-->
+					<div
+						v-for="value in values"
+						:title="getSpecHint(name, value)"
+						:key="'spec-name-' + value"
+						:class="{ selected: selectedSpec[name] === value, disabled: !checkIsSpecSelectable(name, value) }"
+						class="spec-value" @click="onClickSpec(name, value)">
+						<div>{{ value }}</div>
+					</div>
 				</div>
-				<div class="spec-row">
+				<!-- multiple choice amount -->
+				<div v-if="isMultiSku" class="spec-row">
+					<div
+						v-for="value in multiChoiceSpec"
+						:key="'spec-name-' + value">
+						<label>
+							{{ value }} ${{ specStatus[multiChoiceSpecName][value].lowestPrice }} ~ ${{ specStatus[multiChoiceSpecName][value].highestPrice }}
+							<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="specStatus[multiChoiceSpecName][value].maxAmount" />
+							<sub>(max: {{ specStatus[multiChoiceSpecName][value].maxAmount }})</sub>
+						</label>
+					</div>
+				</div>
+				<!-- single choice amount -->
+				<div v-if="!isMultiSku" class="spec-row">
 					<div class="spec-name">Amount</div>
 					<div>
-						<input class="amount-input" type="number" v-model="selected.amount" min="1" :max="statistics.maxAmount" />
+						<input class="amount-input" type="number" v-model="amount" min="1" :max="statistics.maxAmount" />
+						<sub>(max: {{ statistics.maxAmount }})</sub>
 					</div>
 				</div>
 			</div>
 		</div>
 		<div>There are {{ statistics.validSkusIdx.length }} units you can choose from.</div>
-		<!--<ul v-if="false">-->
-			<!--<li v-for="idx in validSkusIdx">{{ skus[idx] | skuDisplayText }}</li>-->
-		<!--</ul>-->
+		<div>Roughly {{ statistics.loopCount }} loops.</div>
 	</div>
 </template>
 
@@ -65,29 +63,69 @@ import specData from './specData.js';
 import getSkus from './getSkus.js';
 import SkuCalculator from './skuCalculator.js';
 
+// setup spec, sku data
 const specs = specData.THSR;
+const date = [];
+const dateCursor = moment();
+for (let i = 0; i < 30; i++) {
+	date.push(dateCursor.format('YYYY-MM-DD'));
+	dateCursor.add(1, 'd');
+}
+const isMultiChoiceMode = true;
 const skus = getSkus(specs, {
-	hasDate: true,
-	// hasTime: true,
-	isValid(combo) {
-		return combo.depart !== combo.arrive;
+	// 日期
+	date: date,
+	// 場次
+	time: [
+		'10:00',
+		'12:00',
+	],
+	// 組成 sku 的規格條件
+	isValid(spec) {
+		return spec.depart !== spec.arrive;
 	},
-	getAmount(combo) {
-		return _.random(1, 5);
+	// sku 數量
+	getAmount(spec) {
+		return _.random(0, 5);
 	},
-	getPrice(combo) {
-		let a;
-		switch (combo.age) {
-			case '成人': a = 100; break;
-			case '兒童': a = 30; break;
-			case '老人': a = 50; break;
+	// sku 價格
+	getPrice(spec) {
+		let price;
+		switch (spec.age) {
+			case '成人': price = 100; break;
+			case '老人': price = 50; break;
+			case '兒童': price = 30; break;
 		}
-		return a * Math.abs(specs.arrive.indexOf(combo.arrive) - specs.depart.indexOf(combo.depart));
+
+		// price is proportional to distance from depart to arrive
+		price = price * Math.abs(specs.arrive.indexOf(spec.arrive) - specs.depart.indexOf(spec.depart));
+
+		// double price on weekends
+		if(spec.date && _.includes([6, 0], moment(spec.date).day())) {
+			price = price * 2;
+		}
+
+		// add some random number
+		price += _.random(0, 20) * 5;
+
+		return price;
 	},
 });
 
-const skuCalculator = new SkuCalculator(specs, skus);
-window.ss = skuCalculator;
+// initialize sku calculator
+const skuCalculator = new SkuCalculator({
+	specs,
+	skus,
+	primarySpecs: {
+		'age': '成人',
+	},
+	hasAmount: true,
+	multiSpecs: isMultiChoiceMode ? ['age'] : null,
+});
+
+// log sku result
+console.log(skus);
+console.log(JSON.stringify(skus));
 
 export default {
 	components: {
@@ -97,72 +135,160 @@ export default {
 		return {
 			specs: specs,
 			skus: skus,
-			selected: {},
-			skuStatus: skuCalculator.skuStatus,
+			selectedSpec: {},
+			specStatus: skuCalculator.specStatus,
 			statistics: skuCalculator.statistics,
-			multiSpec: 'age',
+			multiChoiceSpecName: isMultiChoiceMode ? 'age' : null,
+			amount: null,
 		};
 	},
-	watch: {
-		selected: {
-			deep: true,
-			handler() {
-				skuCalculator.setSelected(this.selected);
-				this.skuStatus = _.cloneDeep(skuCalculator.skuStatus);
-				this.statistics = _.cloneDeep(skuCalculator.statistics);
+	computed: {
+		isMultiSku() {
+			return _.includes(_.keys(this.specs), this.multiChoiceSpecName);
+		},
+		singleChoiceSpecs() {
+			if(!this.isMultiSku) {
+				return this.specs;
 			}
+			const clonedSpecs = _.cloneDeep(this.specs);
+			delete(clonedSpecs[this.multiChoiceSpecName]);
+			return clonedSpecs;
+		},
+		multiChoiceSpec() {
+			return this.isMultiSku ? this.specs[this.multiChoiceSpecName] : null;
+		},
+		selectionArray() {
+			let selectionArray = [];
+			if(this.isMultiSku) {
+				_.forEach(this.specs[this.multiChoiceSpecName], (specValue) => {
+					const amount = +_.get(this.amount, specValue, 0);
+					if(amount === 0) {
+						return;
+					}
+					const spec = _.clone(this.selectedSpec);
+					spec[this.multiChoiceSpecName] = specValue;
+					selectionArray.push({
+						spec,
+						amount,
+					});
+				});
+
+				if(selectionArray.length === 0) {
+					selectionArray.push({
+						spec: _.clone(this.selectedSpec),
+						amount: 0,
+					});
+				}
+
+				// filter duplicate combination
+				selectionArray = _.uniqBy(selectionArray, (selection) => {
+					return JSON.stringify(selection.spec);
+				});
+			} else {
+				// 選擇至少一個規格
+				if(!_.every(this.selectedSpec, _.isNil)) {
+					selectionArray.push({
+						spec: _.clone(this.selectedSpec),
+						amount: +this.amount,
+					});
+				}
+			}
+
+			// 只留下有選 spec 的
+			selectionArray = _.filter(selectionArray, (selection) => {
+				return selection.amount > 0 || _.some(selection.spec, (value) => {
+					return !_.isNil(value);
+				});
+			});
+
+			return selectionArray;
+		},
+	},
+	watch: {
+		selectionArray() {
+			skuCalculator.setSelectionArray(this.selectionArray);
+			this.specStatus = _.cloneDeep(skuCalculator.specStatus);
+			this.statistics = _.cloneDeep(skuCalculator.statistics);
 		},
 	},
 	created() {
-		this.selected = {
-			combo: {},
-			amount: 1,
-		};
-		_.forEach(this.specs, (values, name) => {
-			Vue.set(this.selected.combo, name, null);
-		});
+		this.resetAll();
 	},
 	methods: {
-		onClickSpec(name, value) {
-			if (!this.skuStatus[name][value].selectable) {
-				return;
-			}
-
-			if (this.selected.combo[name] === value) {
-				this.selected.combo[name] = null;
-			} else {
-				this.selected.combo[name] = value;
-			}
-		},
-		onDateChange(date) {
-			this.selected.combo['date'] = date;
-		},
-		resetAll() {
-			_.forEach(this.selected.combo, (value, name) => {
-				this.selected.combo[name] = null;
-			});
-		},
 		checkIsDateValid(dateObj) {
 			if(!moment.isMoment(dateObj)) {
 				return false;
 			}
 
-			return !!_.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'selectable']);
+			return this.checkIsSpecSelectable('date', dateObj.format('YYYY-MM-DD'));
+		},
+		checkIsSpecSelectable(specName, specValue) {
+			return _.get(this.specStatus, [specName, specValue, 'selectable'], false) && !_.get(this.specStatus, [specName, specValue, 'insufficient'], false);
 		},
 		getPriceInfo(dateObj) {
 			if(!moment.isMoment(dateObj)) {
 				return false;
 			}
-			const price = _.get(this.skuStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
+			const date = dateObj.format('YYYY-MM-DD');
+			let text;
+			if(this.checkIsDateValid(dateObj)) {
+				const lowestPrice = _.get(this.specStatus, ['date', date, 'lowestPricePrimary']) || _.get(this.specStatus, ['date', date, 'lowestPrice']);
+				const highestPrice = _.get(this.specStatus, ['date', date, 'highestPricePrimary']) || _.get(this.specStatus, ['date', date, 'highestPrice']);
+				text = `$${ lowestPrice }` + (lowestPrice < highestPrice ? '起' : '');
+			} else if(_.get(this.specStatus, ['date', date, 'insufficient'], false)) {
+				text = '庫存不足'
+			} else {
+				text = '-';
+			}
 			return {
-				text: price ? `$${ price * this.selected.amount }` : '-',
+				text: text,
 				class: 'price',
 			};
 		},
-	},
-	mounted() {
-		// console.log(JSON.stringify(this.skus));
-		console.log('There are ' + this.skus.length + ' possible sku combinations');
+		getSpecHint(specName, specValue) {
+			if(!_.get(this.specStatus, [specName, specValue, 'selectable'])) {
+				return '組合不存在';
+			} else if(_.get(this.specStatus, [specName, specValue, 'insufficient'])) {
+				return '庫存不足';
+			}
+
+			return null;
+		},
+		onClickSpec(name, value) {
+			if(!this.checkIsSpecSelectable(name, value)) {
+				return;
+			}
+
+			if (this.selectedSpec[name] === value) {
+				this.selectedSpec[name] = null;
+			} else {
+				this.selectedSpec[name] = value;
+			}
+		},
+		onDateChange(date) {
+			this.selectedSpec['date'] = date;
+		},
+		resetAll() {
+			this.selectedSpec = {};
+
+			// init selected
+			_.forEach(this.specs, (values, name) => {
+				if(this.isMultiSku && name === this.multiChoiceSpecName) {
+					return;
+				}
+				Vue.set(this.selectedSpec, name, null);
+			});
+
+			// init amount
+			if(this.isMultiSku) {
+				this.amount = {};
+				_.forEach(this.specs[this.multiChoiceSpecName], (value) => {
+					Vue.set(this.amount, value, 0);
+				});
+			} else {
+				this.amount = 1;
+			}
+		},
 	},
 };
 </script>

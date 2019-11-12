@@ -1,8 +1,8 @@
 <template>
 	<div class="container">
 		<h1>Multi Date</h1>
-		<button @click="dateRange = { startDate: '2019/09/01', endDate: '2019/09/03' }">2019/09/01 - 2019/09/03</button>
-		<button @click="dateRange = { startDate: '2019/09/01', endDate: '2019/09/05' }">2019/09/01 - 2019/09/05</button>
+		<button @click="dateRange = { startDate: '2019/10/03', endDate: '2019/10/05' }">2019/10/03 - 2019/10/05</button>
+		<button @click="dateRange = { startDate: '2019/10/08', endDate: '2019/10/10' }">2019/10/08 - 2019/10/10</button>
 		<Calendar
 			v-model="dateRange"
 			:start-week-day="1"
