@@ -212,11 +212,14 @@ export default {
 			if(!moment.isMoment(dateObj)) {
 				return false;
 			}
+			const date = dateObj.format('YYYY-MM-DD');
 			let text;
 			if(this.checkIsDateValid(dateObj)) {
-				const lowestPrice = _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPricePrimary']) || _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'lowestPrice']);
-				const highestPrice = _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPricePrimary']) || _.get(this.specStatus, ['date', dateObj.format('YYYY-MM-DD'), 'highestPrice']);
+				const lowestPrice = _.get(this.specStatus, ['date', date, 'lowestPricePrimary']) || _.get(this.specStatus, ['date', date, 'lowestPrice']);
+				const highestPrice = _.get(this.specStatus, ['date', date, 'highestPricePrimary']) || _.get(this.specStatus, ['date', date, 'highestPrice']);
 				text = `$${ lowestPrice }` + (lowestPrice < highestPrice ? '起' : '');
+			} else if(_.get(this.specStatus, ['date', date, 'insufficient'], false)) {
+				text = '庫存不足'
 			} else {
 				text = '-';
 			}
