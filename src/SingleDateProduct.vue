@@ -15,44 +15,42 @@
 				</Calendar>
 			</div>
 			<div class="col-md-6">
-				<div v-for="(values, name) in specs" v-if="name !== 'date'" :key="'spec-row-' + name" class="spec-row">
+				<!-- single choice specs -->
+				<div v-for="(values, name) in singleChoiceSpecs" v-if="name !== 'date'" :key="'spec-row-' + name" class="spec-row">
 					<div class="spec-name">{{ name }}</div>
-					<template v-if="!isMultiSku || name !== multiSpec">
-						<div
-							v-for="value in values"
-							:title="getSpecHint(name, value)"
-							:key="'spec-name-' + value"
-							:class="{ selected: selectedSpec[name] === value, disabled: !checkIsSpecSelectable(name, value) }"
-							class="spec-value" @click="onClickSpec(name, value)">
-							<div>{{ value }}</div>
-						</div>
-					</template>
-					<template v-else>
-						<div
-							v-for="value in values"
-							:key="'spec-name-' + value">
-							<label>
-								{{ value }} ${{ specStatus[name][value].lowestPrice }} ~ ${{ specStatus[name][value].highestPrice }}
-								<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="specStatus[name][value].maxAmount" />
-								<sub>(max: {{ specStatus[name][value].maxAmount }})</sub>
-							</label>
-						</div>
-					</template>
+					<div
+						v-for="value in values"
+						:title="getSpecHint(name, value)"
+						:key="'spec-name-' + value"
+						:class="{ selected: selectedSpec[name] === value, disabled: !checkIsSpecSelectable(name, value) }"
+						class="spec-value" @click="onClickSpec(name, value)">
+						<div>{{ value }}</div>
+					</div>
 				</div>
+				<!-- multiple choice amount -->
+				<div v-if="isMultiSku" class="spec-row">
+					<div
+						v-for="value in multiChoiceSpec"
+						:key="'spec-name-' + value">
+						<label>
+							{{ value }} ${{ specStatus[multiChoiceSpecName][value].lowestPrice }} ~ ${{ specStatus[multiChoiceSpecName][value].highestPrice }}
+							<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="specStatus[multiChoiceSpecName][value].maxAmount" />
+							<sub>(max: {{ specStatus[multiChoiceSpecName][value].maxAmount }})</sub>
+						</label>
+					</div>
+				</div>
+				<!-- single choice amount -->
 				<div v-if="!isMultiSku" class="spec-row">
 					<div class="spec-name">Amount</div>
 					<div>
 						<input class="amount-input" type="number" v-model="amount" min="1" :max="statistics.maxAmount" />
+						<sub>(max: {{ statistics.maxAmount }})</sub>
 					</div>
 				</div>
 			</div>
 		</div>
 		<div>There are {{ statistics.validSkusIdx.length }} units you can choose from.</div>
 		<div>Roughly {{ statistics.loopCount }} loops.</div>
-
-		<!--<ul v-if="false">-->
-			<!--<li v-for="idx in validSkusIdx">{{ skus[idx] | skuDisplayText }}</li>-->
-		<!--</ul>-->
 	</div>
 </template>
 
@@ -65,10 +63,11 @@ import specData from './specData.js';
 import getSkus from './getSkus.js';
 import SkuCalculator from './skuCalculator.js';
 
+const multiTicketMode = true;
 const specs = specData.THSR;
 const skus = getSkus(specs, {
 	hasDate: true,
-	// hasTime: true,
+	hasTime: true,
 	isValid(spec) {
 		return spec.depart !== spec.arrive;
 	},
@@ -79,7 +78,6 @@ const skus = getSkus(specs, {
 		let price;
 		switch (spec.age) {
 			case '成人': price = 100; break;
-			case '學生': price = 80; break;
 			case '老人': price = 50; break;
 			case '兒童': price = 30; break;
 		}
@@ -98,8 +96,6 @@ const skus = getSkus(specs, {
 		return price;
 	},
 });
-console.log(skus);
-console.log(JSON.stringify(skus));
 const skuCalculator = new SkuCalculator({
 	specs,
 	skus,
@@ -107,8 +103,12 @@ const skuCalculator = new SkuCalculator({
 		'age': '成人',
 	},
 	hasAmount: true,
-	multiSpecs: ['age'],
+	multiSpecs: multiTicketMode ? ['age'] : null,
 });
+
+// log sku result
+console.log(skus);
+console.log(JSON.stringify(skus));
 
 export default {
 	components: {
@@ -121,24 +121,35 @@ export default {
 			selectedSpec: {},
 			specStatus: skuCalculator.specStatus,
 			statistics: skuCalculator.statistics,
-			multiSpec: 'age',
+			multiChoiceSpecName: multiTicketMode ? 'age' : null,
 			amount: null,
 		};
 	},
 	computed: {
 		isMultiSku() {
-			return _.includes(_.keys(this.specs), this.multiSpec);
+			return _.includes(_.keys(this.specs), this.multiChoiceSpecName);
+		},
+		singleChoiceSpecs() {
+			if(!this.isMultiSku) {
+				return this.specs;
+			}
+			const clonedSpecs = _.cloneDeep(this.specs);
+			delete(clonedSpecs[this.multiChoiceSpecName]);
+			return clonedSpecs;
+		},
+		multiChoiceSpec() {
+			return this.isMultiSku ? this.specs[this.multiChoiceSpecName] : null;
 		},
 		selectionArray() {
 			let selectionArray = [];
 			if(this.isMultiSku) {
-				_.forEach(this.specs[this.multiSpec], (specValue) => {
+				_.forEach(this.specs[this.multiChoiceSpecName], (specValue) => {
 					const amount = +_.get(this.amount, specValue, 0);
 					if(amount === 0) {
 						return;
 					}
 					const spec = _.clone(this.selectedSpec);
-					spec[this.multiSpec] = specValue;
+					spec[this.multiChoiceSpecName] = specValue;
 					selectionArray.push({
 						spec,
 						amount,
@@ -242,7 +253,7 @@ export default {
 
 			// init selected
 			_.forEach(this.specs, (values, name) => {
-				if(this.isMultiSku && name === this.multiSpec) {
+				if(this.isMultiSku && name === this.multiChoiceSpecName) {
 					return;
 				}
 				Vue.set(this.selectedSpec, name, null);
@@ -251,16 +262,13 @@ export default {
 			// init amount
 			if(this.isMultiSku) {
 				this.amount = {};
-				_.forEach(this.specs[this.multiSpec], (value) => {
+				_.forEach(this.specs[this.multiChoiceSpecName], (value) => {
 					Vue.set(this.amount, value, 0);
 				});
 			} else {
 				this.amount = 1;
 			}
 		},
-	},
-	mounted() {
-		console.log('There are ' + this.skus.length + ' possible sku combinations');
 	},
 };
 </script>

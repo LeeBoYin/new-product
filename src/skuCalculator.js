@@ -264,7 +264,9 @@ const SkuCalculator = function(options) {
 					return;
 				}
 
-				validSkusIdx[selectionIdx].push(skuIdx);
+				if(isSkuSufficient) {
+					validSkusIdx[selectionIdx].push(skuIdx);
+				}
 			});
 		});
 
