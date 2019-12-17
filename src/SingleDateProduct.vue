@@ -61,6 +61,7 @@ import _ from 'lodash';
 import Calendar from './Calendar.vue';
 import specData from './specData.js';
 import getSkus from './getSkus.js';
+import { getDummySKUS } from "./getSkus.js"
 import SkuCalculator from './skuCalculator.js';
 
 // setup spec, sku data
@@ -72,44 +73,53 @@ for (let i = 0; i < 30; i++) {
 	dateCursor.add(1, 'd');
 }
 const isMultiChoiceMode = true;
-const skus = getSkus(specs, {
+// const skus = getSkus(specs, {
+// 	// 日期
+// 	date: date,
+// 	// 場次
+// 	time: [
+// 		'10:00',
+// 		'12:00',
+// 	],
+// 	// 組成 sku 的規格條件
+// 	isValid(spec) {
+// 		return spec.depart !== spec.arrive;
+// 	},
+// 	// sku 數量
+// 	getAmount(spec) {
+// 		return _.random(0, 5);
+// 	},
+// 	// sku 價格
+// 	getPrice(spec) {
+// 		let price;
+// 		switch (spec.age) {
+// 			case '成人': price = 100; break;
+// 			case '老人': price = 50; break;
+// 			case '兒童': price = 30; break;
+// 		}
+
+// 		// price is proportional to distance from depart to arrive
+// 		price = price * Math.abs(specs.arrive.indexOf(spec.arrive) - specs.depart.indexOf(spec.depart));
+
+// 		// double price on weekends
+// 		if(spec.date && _.includes([6, 0], moment(spec.date).day())) {
+// 			price = price * 2;
+// 		}
+
+// 		// add some random number
+// 		price += _.random(0, 20) * 5;
+
+// 		return price;
+// 	},
+// });
+
+const skus = getDummySKUS(specs, {
 	// 日期
 	date: date,
 	// 場次
 	time: [
-		'10:00',
-		'12:00',
-	],
-	// 組成 sku 的規格條件
-	isValid(spec) {
-		return spec.depart !== spec.arrive;
-	},
-	// sku 數量
-	getAmount(spec) {
-		return _.random(0, 5);
-	},
-	// sku 價格
-	getPrice(spec) {
-		let price;
-		switch (spec.age) {
-			case '成人': price = 100; break;
-			case '老人': price = 50; break;
-			case '兒童': price = 30; break;
-		}
-
-		// price is proportional to distance from depart to arrive
-		price = price * Math.abs(specs.arrive.indexOf(spec.arrive) - specs.depart.indexOf(spec.depart));
-
-		// double price on weekends
-		if(spec.date && _.includes([6, 0], moment(spec.date).day())) {
-			price = price * 2;
-		}
-
-		// add some random number
-		price += _.random(0, 20) * 5;
-
-		return price;
-	},
+		"05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:15", "08:30", "08:45", "09:00", "09:30", "10:00", "10:30", "10:45", "11:00", "11:30", "12:00", "12:30", "13:00"
+	]
 });
 
 // initialize sku calculator
