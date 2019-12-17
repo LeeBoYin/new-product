@@ -33,9 +33,10 @@
 						v-for="value in multiChoiceSpec"
 						:key="'spec-name-' + value">
 						<label>
-							{{ value }} ${{ specStatus[multiChoiceSpecName][value].lowestPrice }} ~ ${{ specStatus[multiChoiceSpecName][value].highestPrice }}
-							<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="specStatus[multiChoiceSpecName][value].maxAmount" />
-							<sub>(max: {{ specStatus[multiChoiceSpecName][value].maxAmount }})</sub>
+							{{ value }}
+							<span v-if="specStatus[multiChoiceSpecName][value].selectable">${{ specStatus[multiChoiceSpecName][value].lowestPrice }} ~ ${{ specStatus[multiChoiceSpecName][value].highestPrice }}</span>
+							<input class="amount-input" type="number" v-model="amount[value]" min="0" :max="specStatus[multiChoiceSpecName][value].maxAmount" :disabled="!specStatus[multiChoiceSpecName][value].selectable" />
+							<sub v-if="specStatus[multiChoiceSpecName][value].selectable">(max: {{ specStatus[multiChoiceSpecName][value].maxAmount }})</sub>
 						</label>
 					</div>
 				</div>
@@ -231,12 +232,14 @@ export default {
 			}
 			const date = dateObj.format('YYYY-MM-DD');
 			let text;
-			if(this.checkIsDateValid(dateObj)) {
+			if(!_.get(this.specStatus, ['date', date, 'selectable'], false)) {
+				text = '-'
+			} else if(_.get(this.specStatus, ['date', date, 'insufficient'], false)) {
+				text = '庫存不足'
+			} else if(this.checkIsDateValid(dateObj)) {
 				const lowestPrice = _.get(this.specStatus, ['date', date, 'lowestPricePrimary']) || _.get(this.specStatus, ['date', date, 'lowestPrice']);
 				const highestPrice = _.get(this.specStatus, ['date', date, 'highestPricePrimary']) || _.get(this.specStatus, ['date', date, 'highestPrice']);
 				text = `$${ lowestPrice }` + (lowestPrice < highestPrice ? '起' : '');
-			} else if(_.get(this.specStatus, ['date', date, 'insufficient'], false)) {
-				text = '庫存不足'
 			} else {
 				text = '-';
 			}

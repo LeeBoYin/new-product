@@ -21,6 +21,17 @@ const SkuCalculator = function(options) {
 		cheapestSkusIdx: [],
 	};
 
+	const statisticsOfSpecDefault = {
+		selectable: false,
+		maxAmount: hasAmount ? 0 : null,
+		insufficient: hasAmount ? true : null,
+		lowestPrice: null,
+		lowestPricePrimary: null,
+		highestPrice: null,
+		highestPricePrimary: null,
+		cheapestSkusIdx: [],
+	};
+
 	const statisticsOfSpec = {};
 	_.forEach(skus, (sku, skuIdx) => {
 		sku.isPrimary = checkIsSkuPrimary(sku);
@@ -32,16 +43,7 @@ const SkuCalculator = function(options) {
 				statisticsOfSpec[specName] = {};
 			}
 			if(_.isNil(statisticsOfSpec[specName][specValue])) {
-				statisticsOfSpec[specName][specValue] = {
-					selectable: false,
-					maxAmount: hasAmount ? 0 : null,
-					insufficient: hasAmount ? true : null,
-					lowestPrice: null,
-					lowestPricePrimary: null,
-					highestPrice: null,
-					highestPricePrimary: null,
-					cheapestSkusIdx: [],
-				};
+				statisticsOfSpec[specName][specValue] = _.clone(statisticsOfSpecDefault);
 			}
 
 			const statisticsOfThisSpec = statisticsOfSpec[specName][specValue];
@@ -138,16 +140,7 @@ const SkuCalculator = function(options) {
 				selectionStatus[selectionIdx][specName] = {};
 				_.forEach(values, (specValue) => {
 					loopCount++;
-					selectionStatus[selectionIdx][specName][specValue] = {
-						selectable: false,
-						maxAmount: hasAmount ? 0 : null,
-						insufficient: hasAmount ? true : null,
-						lowestPrice: null,
-						lowestPricePrimary: null,
-						highestPrice: null,
-						highestPricePrimary: null,
-						cheapestSkusIdx: [],
-					};
+					selectionStatus[selectionIdx][specName][specValue] = _.clone(statisticsOfSpecDefault);
 				});
 			});
 		});
@@ -276,7 +269,7 @@ const SkuCalculator = function(options) {
 			_.forEach(values, (specValue) => {
 				loopCount++;
 				// reset sku status
-				const statusOfThisSpec = specStatus[specName][specValue] = _.clone(statisticsOfSpec[specName][specValue]);
+				const statusOfThisSpec = specStatus[specName][specValue] = _.clone(_.get(statisticsOfSpec, [specName, specValue], statisticsOfSpecDefault));
 
 				if(_.isEmpty(selectionStatus)) {
 					return;
